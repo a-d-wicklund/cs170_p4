@@ -68,12 +68,11 @@ int tls_create(unsigned int size){
     int cur = (int) size;
     int i = 0;
     do{
+		printf("creating new page\n");
         page *thisPage = malloc(sizeof(page)); //Create a new page
         thisPage->count = 1;
         thisPage->addr = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-		printf("after mmap\n");
         mem->pages[i] = thisPage; //Set the pointer to the new page pointer
-		printf("After trying to access pages as array\n");
         cur = cur - pagesize;
         i++;
     }while(cur > 0);
@@ -88,18 +87,32 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
     }
 
     //Unprotect pages until you're at the last page
-    while(1){
-        int curOffsetPage = offset/pagesize;
-        int tlsPageCount = mem->size/pagesize;
+    int curOffsetPage = offset/pagesize;
+    int tlsPageCount = mem->size/pagesize;
+	
+	while(1){   		
         if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
             mprotect(mem->pages[tlsPageCount]->addr, 1, PROT_WRITE);
             break;
         }
         else{
             mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
+			
             curOffsetPage++;
         }
     }
+	while(1){
+	if(mem->pages[curOffsetPage]->count > 1){
+		//Create a new page and point to it in array
+		mem->pages[curOffsetPage]->count--;
+		page *p = malloc(sizeof(page));
+		p->count = 1;
+	}
+	else{
+				
+			
+	}
+	
     //if the block is shared, need to use mmap to create a new block of memory. 
     //Maybe just make a call to tls_create?
     //Somehow manage how its connected to previous section of memory
@@ -111,7 +124,7 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
 
 int tls_clone(pthread_t tid){
     //Insert another thread into hash table
-    //
+    //Make pages for the new table correspond to pages from cloned one
 }
 
 int tls_destroy(){
