@@ -18,7 +18,8 @@ int main(){
     if(tls_create(20) == -1){
         printf("Error\n");
     }
-	char *c = "this";
+	char *c = malloc(sizeof(char)*4501);
+
 	if(tls_write(0,5000,c) == -1){
 		printf("error writing too far");
 	}

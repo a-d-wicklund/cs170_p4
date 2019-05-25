@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
+#include <string.h>
 
 int main(){
 
@@ -12,11 +12,14 @@ int main(){
 
     mprotect(location, getpagesize()+1, PROT_READ | PROT_WRITE);
 
-    char *a = (void *) location;
-
+    char *a = "what";
+	strncpy(location, a, 4);
+	printf("string: %c\n", location);
+	printf("%c\n", *a);
+	/*
     *(a+5) = 'a';
     printf("%d\n",(int) *(a));
-
+	*/
     //Takeaway: shown that mprotect protects a page at a time. Also, mmap initializes 
     //all values to zero.
 

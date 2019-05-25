@@ -92,7 +92,8 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
     int tlsPageCount = mem->size/pagesize;
 	char *bufPos = buffer;
     int once = 0;
-	while(1){  
+	while(1){
+		  
         /*if(mem->pages[curOffsetPage]->count > 1){
             //Create a new page and point to it in array
             mem->pages[curOffsetPage]->count--;
@@ -103,16 +104,18 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
 	    }*/
         if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
             //At the last page to write to
-            mprotect(mem->pages[tlsPageCount]->addr, 1, PROT_WRITE);
+            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
             if(once){
                 //If we've already wrote past the first page of the array, write at the start of the next page
                 int writeLength = (offset+length)%pagesize;
                 strncpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, writeLength);
             }     
             else{
+				printf("Should be here\n");
                 //On the first write, start at the offset
                 int writeLength = length;
                 strncpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufPos, writeLength);
+				printf("%c\n",*((char *) mem->pages[offset/pagesize]->addr + offset%pagesize));
             } 
             break;
         }
