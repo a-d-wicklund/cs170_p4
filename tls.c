@@ -5,6 +5,7 @@
 #include <pthread.h>
 
 #define MAXTHREADS 129
+#define MAXPAGES 256
 
 int first = 1;
 int pagesize;
@@ -22,8 +23,7 @@ typedef struct TLS{
 tls *tarray[MAXTHREADS] = {NULL}; //References to TLS structs
 
 tls *hashSearch(pthread_t tid){
-    int index = ((int) tid) % MAXTHREADS;
-    
+    long int index = ((long int) tid) % MAXTHREADS;   
     //Loop until empty spot found
     while(tarray[index] != NULL){
         if(tarray[index]->tid == tid){
@@ -32,11 +32,11 @@ tls *hashSearch(pthread_t tid){
         index++;
         index = index % MAXTHREADS;
     }
-    return NULL;
+	return NULL;
 }
 
 void hashInsert(pthread_t tid, tls **mem){
-    int index = ((int) tid) % MAXTHREADS;
+    long int index = ((long int) tid) % MAXTHREADS;
 
     while(tarray[index] != NULL){
         index++;
@@ -53,8 +53,9 @@ int tls_create(unsigned int size){
     if(first){
         tls_init();
     }
-    int self = pthread_self();
-    //Error handling: less than 1 or thread already has TLS
+    pthread_t  self = pthread_self();
+
+   //Error handling: less than 1 or thread already has TLS
     if((size < 1) || (hashSearch(self) != NULL)){
         return -1;
     }
@@ -62,15 +63,17 @@ int tls_create(unsigned int size){
     hashInsert(self, &mem);
     mem->tid = self;
     mem->size = size;
-
+	mem->pages = malloc(sizeof(page *)*MAXPAGES);
     //put a new page into the array of pages until finished. 
-    unsigned int cur = size;
+    int cur = (int) size;
     int i = 0;
     do{
-        page *thisPage = malloc(page); //Create a new page
+        page *thisPage = malloc(sizeof(page)); //Create a new page
         thisPage->count = 1;
         thisPage->addr = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+		printf("after mmap\n");
         mem->pages[i] = thisPage; //Set the pointer to the new page pointer
+		printf("After trying to access pages as array\n");
         cur = cur - pagesize;
         i++;
     }while(cur > 0);
@@ -93,7 +96,7 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
             break;
         }
         else{
-            mprotect(mem->pages[curOffsetpage]->addr, )
+            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
             curOffsetPage++;
         }
     }

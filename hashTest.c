@@ -4,8 +4,8 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
-
-int main(){
-
-    printf("integer variable from tls library: %d",first);
+int *arr[25] = {NULL};
+int main(){	
+	tls_create(20);
+    //printf("integer variable from tls library: %d",first);
 }
