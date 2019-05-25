@@ -9,7 +9,7 @@
 #define MAXPAGES 1025
 
 int first = 1;
-const int pagesize;
+int pagesize;
 typedef struct Page{
     void *addr; //Beginning of memory for this page
     int count; //How many threads are pointed to this page
@@ -107,19 +107,19 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
             if(once){
                 //If we've already wrote past the first page of the array, write at the start of the next page
                 int writeLength = (offset+length)%pagesize;
-                strcpy(mem-pages[curOffsetPage/pagesize]->addr, bufpos, writeLength);
+                strncpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, writeLength);
             }     
             else{
                 //On the first write, start at the offset
                 int writeLength = length;
-                strcpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufpos, writeLength);
+                strncpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufPos, writeLength);
             } 
             break;
         }
         else{
             mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
             int writeLength = pagesize;
-            strcpy(mem->pages[curOffsetPage/pagesize]->addr, bufpos, pagesize);
+            strncpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, pagesize);
             curOffsetPage++;
         }
         once = 1;
