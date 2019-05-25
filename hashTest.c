@@ -20,7 +20,7 @@ int main(){
     }
 	char *c = malloc(sizeof(char)*4501);
 
-	if(tls_write(0,5000,c) == -1){
+	if(tls_write(0,50,c) == -1){
 		printf("error writing too far");
 	}
     //printf("integer variable from tls library: %d",first);

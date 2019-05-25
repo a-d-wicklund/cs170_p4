@@ -117,6 +117,7 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
                 strncpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufPos, writeLength);
 				printf("%c\n",*((char *) mem->pages[offset/pagesize]->addr + offset%pagesize));
             } 
+			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
             break;
         }
         else{
