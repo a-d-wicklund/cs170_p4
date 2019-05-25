@@ -5,7 +5,7 @@
 #include <pthread.h>
 
 #define MAXTHREADS 129
-#define MAXPAGES 256
+#define MAXPAGES 1025
 
 int first = 1;
 int pagesize;
@@ -115,5 +115,11 @@ int tls_clone(pthread_t tid){
 }
 
 int tls_destroy(){
-
+    tls *mem = hashSearch(pthread_self());
+    //Error Handling: TLS does not exist for this thread
+    if(mem == NULL){
+        return -1;
+    }
+    //TODO: go through each page in the "array" of pages and free each one
+    //Then free the array
 }
