@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <pthread.h>
 
@@ -8,7 +9,7 @@
 #define MAXPAGES 1025
 
 int first = 1;
-int pagesize;
+const int pagesize;
 typedef struct Page{
     void *addr; //Beginning of memory for this page
     int count; //How many threads are pointed to this page
@@ -89,29 +90,43 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
     //Unprotect pages until you're at the last page
     int curOffsetPage = offset/pagesize;
     int tlsPageCount = mem->size/pagesize;
-	
-	while(1){   		
+	char *bufPos = buffer;
+    int once = 0;
+	while(1){  
+        /*if(mem->pages[curOffsetPage]->count > 1){
+            //Create a new page and point to it in array
+            mem->pages[curOffsetPage]->count--;
+            page *p = malloc(sizeof(page));
+            p->count = 1;
+            p->addr = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+            mem->pages[curOffsetPage] = p;
+	    }*/
         if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
+            //At the last page to write to
             mprotect(mem->pages[tlsPageCount]->addr, 1, PROT_WRITE);
+            if(once){
+                //If we've already wrote past the first page of the array, write at the start of the next page
+                int writeLength = (offset+length)%pagesize;
+                strcpy(mem-pages[curOffsetPage/pagesize]->addr, bufpos, writeLength);
+            }     
+            else{
+                //On the first write, start at the offset
+                int writeLength = length;
+                strcpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufpos, writeLength);
+            } 
             break;
         }
         else{
             mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
-			
+            int writeLength = pagesize;
+            strcpy(mem->pages[curOffsetPage/pagesize]->addr, bufpos, pagesize);
             curOffsetPage++;
         }
+        once = 1;
     }
-	while(1){
-	if(mem->pages[curOffsetPage]->count > 1){
-		//Create a new page and point to it in array
-		mem->pages[curOffsetPage]->count--;
-		page *p = malloc(sizeof(page));
-		p->count = 1;
-	}
-	else{
-				
-			
-	}
+
+	
+
 	
     //if the block is shared, need to use mmap to create a new block of memory. 
     //Maybe just make a call to tls_create?
