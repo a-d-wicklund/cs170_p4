@@ -107,7 +107,8 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
 }
 
 int tls_clone(pthread_t tid){
-    tls_create(20);
+    //Insert another thread into hash table
+    //
 }
 
 int tls_destroy(){
