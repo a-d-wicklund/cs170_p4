@@ -180,6 +180,18 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
 int tls_clone(pthread_t tid){
     //Insert another thread into hash table
     //Make pages for the new table correspond to pages from cloned one
+    tls *memself = hashSearch(pthread_self());
+	tls *memtarget = hashSearch(tid);
+	if(memself != NULL || memtarget == NULL){
+		return -1;
+	}
+	memself = malloc(sizeof(tls));
+	memself->tid = pthread_self();
+	memself->size = memtarget->size;
+	memself->pages = memtarget->pages; //new tls pages array points to same place as target
+	
+		
+	
 }
 
 int tls_destroy(){
