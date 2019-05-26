@@ -12,6 +12,11 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer);
 int tls_clone(pthread_t tid);
 
 int *arr[25] = {NULL};
+
+void *tfunc(void *input){
+
+	
+}
 int main(){	
 	if(tls_create(5000) == -1){
         printf("Error\n");
@@ -28,5 +33,14 @@ int main(){
 	printf("String: %s\n", d);
 	free(d);
 	free(c);
+
+	if(tls_clone(20) == -1){
+		printf("Error target does not have tls or self already does\n");
+	}
+	d = malloc(sizeof(char)*4501);
+
+	pthread_t tid;
+	pthread_create(&tid,NULL,&tfunc, NULL);
+	
     //printf("integer variable from tls library: %d",first);
 }
