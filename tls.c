@@ -139,6 +139,42 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
 
 int tls_read(unsigned int offset, unsigned int length, char *buffer){
     //Find the block of memory and read from it
+    //Error handling: when trying to write more than the storage can hold, or tls dne
+    tls *mem = hashSearch(pthread_self());
+    if(mem == NULL || offset+length > mem->size){
+        return -1; 
+    }
+
+    //Unprotect pages until you're at the last page
+    int curOffsetPage = offset/pagesize;
+    int tlsPageCount = mem->size/pagesize;
+	char *bufPos = buffer;
+    int once = 0;
+	while(1){
+		mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_READ);
+        if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
+            if(once){
+                //If we've already wrote past the first page of the array, write at the start of the next page
+                int writeLength = (offset+length)%pagesize;
+                strncpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, writeLength);
+            }     
+            else{
+				printf("Should be here\n");
+                //On the first write, start at the offset
+                int writeLength = length;
+                strncpy(bufPos,mem->pages[offset/pagesize]->addr + offset%pagesize, writeLength);
+            } 
+			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
+            break;
+        }
+        else{
+            int writeLength = pagesize;
+            strncpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, pagesize);
+            curOffsetPage++;
+            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
+        }
+        once = 1;
+    }
 }
 
 int tls_clone(pthread_t tid){
