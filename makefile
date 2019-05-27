@@ -1,5 +1,5 @@
 output: autograder.o tls.o
-	gcc -g autograder.o tls.o -o app
+	gcc -g -pthread autograder.o tls.o -o app
 
 autograder.o: autograder.c
 	gcc -c -g autograder.c
