@@ -48,6 +48,13 @@ void hashInsert(pthread_t tid, tls **mem){
     tarray[index] = *mem;
 }
 
+void* tls_get_internal_start_address(){
+	tls *mem = hashSearch(pthread_self());
+	if(mem == NULL)
+		return NULL;
+	return mem->pages[0]->addr;
+}
+
 void tls_init(){
     pagesize = getpagesize();
     //Set up the signal handler 
@@ -96,14 +103,15 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
     int once = 0;
 	while(1){
 		  
-        /*if(mem->pages[curOffsetPage]->count > 1){
+        if(mem->pages[curOffsetPage]->count > 1){
             //Create a new page and point to it in array
+            printf("About to copy on write\n");
             mem->pages[curOffsetPage]->count--;
             page *p = malloc(sizeof(page));
             p->count = 1;
             p->addr = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
             mem->pages[curOffsetPage] = p;
-	    }*/
+	    }
         if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
             //At the last page to write to
             mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
@@ -113,11 +121,11 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
                 memcpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, writeLength);
             }     
             else{
-				printf("Should be here\n");
+				printf("Writing into the first and only page\n");
                 //On the first write, start at the offset
                 int writeLength = length;
                 memcpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufPos, writeLength);
-				printf("%d\n",*((int *) mem->pages[offset/pagesize]->addr + offset%pagesize));
+				//printf("%d\n",*((int *) mem->pages[offset/pagesize]->addr + offset%pagesize));
             } 
 			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
             break;
@@ -161,7 +169,7 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
                 strncpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, writeLength);
             }     
             else{
-				printf("Should be here\n");
+				printf("Reading from first and only page\n");
                 //On the first write, start at the offset
                 int writeLength = length;
                 strncpy(bufPos,mem->pages[offset/pagesize]->addr + offset%pagesize, writeLength);
@@ -184,21 +192,20 @@ int tls_clone(pthread_t tid){
     //Make pages for the new table correspond to pages from cloned one
     tls *memself = hashSearch(pthread_self());
 	tls *memtarget = hashSearch(tid);
-	printf("Before error check\n");
 	if(memself != NULL || memtarget == NULL){
 		return -1;
 	}
-	printf("Inside clone. No error\n");
+	//printf("Inside clone. No error\n");
 	memself = malloc(sizeof(tls));
 	memself->tid = pthread_self();
 	memself->size = memtarget->size;
 	memself->pages = malloc(sizeof(page *)*MAXPAGES);
 	memcpy(memself->pages, memtarget->pages, (memtarget->size/pagesize+1)*sizeof(page *));
 	hashInsert(pthread_self(), &memself);
-	printf("page pointer at first spot(target): %p\npage pointer at first spot(clone): %p\n",memtarget->pages[0]->addr,memself->pages[0]->addr);
+	//printf("page pointer at first spot(target): %p\npage pointer at first spot(clone): %p\n",memtarget->pages[0]->addr,memself->pages[0]->addr);
 	printf("After memcpy\n");
 	//printf("target val: %d\n",(int) *((char *) memtarget->pages[0]->addr));
-	printf("After print\n");
+	//printf("After print\n");
 	int i = 0;
 	for(i; i < memtarget->size/pagesize; i++){
 		memtarget->pages[i]->count++;
