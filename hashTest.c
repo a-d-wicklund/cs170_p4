@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <pthread.h>
 
+void* tls_get_internal_start_address();
 int tls_create(unsigned int size);
 int tls_destroy();
 int tls_read(unsigned int offset, unsigned int length, char *buffer);
@@ -18,6 +19,11 @@ void *tfunc(void *input){
 	
 }
 int main(){	
+	void *ptr = tls_get_internal_start_address();
+	if(ptr ==NULL)
+		printf("Does not exist\n");
+	else
+		printf("Thread local storage exists. first page is at %p\n", ptr);
 	if(tls_create(5000) == -1){
         printf("Error\n");
     }
@@ -33,14 +39,18 @@ int main(){
 	printf("String: %s\n", d);
 	free(d);
 	free(c);
-
-	if(tls_clone(20) == -1){
-		printf("Error target does not have tls or self already does\n");
-	}
+	void *ptr2 = tls_get_internal_start_address();
+	if(ptr2 ==NULL)
+		printf("Does not exist\n");
+	else
+		printf("Thread local storage exists. first page is at %p\n", ptr2);
+	//if(tls_clone(20) == -1){
+	//	printf("Error target does not have tls or self already does\n");
+	//}
 	d = malloc(sizeof(char)*4501);
 
 	pthread_t tid;
-	pthread_create(&tid,NULL,&tfunc, NULL);
+	//pthread_create(&tid,NULL,&tfunc, NULL);
 	
     //printf("integer variable from tls library: %d",first);
 }

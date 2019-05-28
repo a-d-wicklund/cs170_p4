@@ -93,7 +93,62 @@ static int test3(void){
     return 1;
 }
 
+// clone test 2
+//==============================================================================
+static void* _thread_create2(void* arg){
+    char in_buf[4] = {2,2,2,2};
+    sem_t* mutex_sems = (sem_t*)arg;
 
+    // create new LSA and signal to thread 1 when done
+    tls_create(8192);
+    sem_post(&mutex_sems[0]);
+
+    // wait for thread 1 to clone, write our own values, then signal back to thread 1
+    sem_wait(&mutex_sems[1]);
+    tls_write(0, 4, in_buf);
+    sem_post(&mutex_sems[0]);
+
+    while(1); // just wait forever, don't want to exit and release LSA memory
+    return 0; // shut the compiler up
+}
+
+//This test creates a second thread, creates a tls for that thread, clones it in main, writes to it in main,
+//which should create a new page for that entry, then writes to it in second thread, finally reads from it in main.
+//When read, it should contain what main wrote to it separately
+static int test4(void){
+    pthread_t tid1 = 0;
+    sem_t mutex_sems[2];
+    char in_buf[4] = {1,1,1,1};
+    char out_buf[4] = {0,0,0,0};
+
+
+    // init semaphores and wait for thread 2 to create LSA
+    sem_init(&mutex_sems[0], 0, 0);
+    sem_init(&mutex_sems[1], 0, 0);
+    pthread_create(&tid1, NULL,  &_thread_create2, mutex_sems);
+    sem_wait(&mutex_sems[0]);
+
+    // clone and write our own new values, and signal to thread 2 it's time to write values
+    if(tls_clone(tid1) == -1){
+		printf("Error while cloning\n");
+	}
+    tls_write(0, 4, in_buf);
+    sem_post(&mutex_sems[1]);
+
+    // wait until thread 2 writes, then read out the LSA
+    sem_wait(&mutex_sems[0]);
+    tls_read(0, 4, out_buf);
+
+    // make sure our data was not overwritten by thread 2
+    for(int i = 0; i < 4; i++){
+		printf("out_buf should be 1 but is %d\n", out_buf[i]);
+        if(out_buf[i] != 1){
+            return 0;
+        }
+    }
+
+    return 1;
+}
 
 int main(){
 	/*if(test1()){
@@ -103,9 +158,13 @@ int main(){
 	if(test2()){
 		printf("Passed 2!\n");
 	}
-	*/	
+		
 	if(test3()){
 		printf("Passed 3!\n");
+	}
+	*/
+	if(test4()){
+		printf("Passed 4!\n");
 	}
 	
 
