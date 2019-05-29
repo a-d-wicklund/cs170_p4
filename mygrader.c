@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <unistd.h>
+#include <string.h>
 
 int tls_create(unsigned int size);
 int tls_destroy();
@@ -175,26 +176,70 @@ static int test9(void){
 
     return 1;
 }
+static void* addr;
+static int s = 20;
+
+static void* test_seg(void* arg){
+    char in_buf[4] = {2,2,2,2};
+
+    tls_create(8192);
+    tls_write(4094, 4, in_buf);
+    while(s == 20);
+    strcpy(in_buf,(char*)addr);
+    s = 30;
+    while(1);
+    return 0;
+}
+
+static void* test_seg1(void* arg){
+    char in_buf[4] = {2,2,2,2};
+
+    tls_create(8192);
+    tls_write(4094, 4, in_buf);
+    strcpy(in_buf,(char*)tls_get_internal_start_address());
+    s = 30;
+    while(1);
+    return 0;
+}
+
+
+static int test21(void){
+    pthread_t tid1 = 0;
+    tls_create(8192);
+    addr = tls_get_internal_start_address();
+    // create a thread, to give anyone using their homegrown thread library a chance to init
+    pthread_create(&tid1, NULL,  &test_seg, NULL);
+
+    char in_buf[4] = {1,1,1,1};
+    char out_buf[4] = {0};
+
+    s = 10;
+    pthread_join(tid1, NULL);
+
+    if(s != 10){
+        return 0;
+    }
+    printf("Passed the first\n");
+    s = 20;
+    pthread_create(&tid1, NULL,  &test_seg1, NULL);
+    pthread_join(tid1, NULL);
+
+    if(s != 20){
+        return 0;
+    }
+
+    return 1;
+}
 
 int main(){
 	/*if(test1()){
 		printf("Passed 1!\n");
 	}
-	
-	if(test2()){
-		printf("Passed 2!\n");
+	*/
+	if(test21()){
+		printf("Passed 21!\n");
 	}
-		
-	if(test3()){
-		printf("Passed 3!\n");
-	}
-	
-	if(test4()){
-		printf("Passed 4!\n");
-	}*/
-    if(test9()){
-        printf("Passed 9!\n");
-    }
+
 	
 
 }

@@ -48,7 +48,7 @@ void hashInsert(pthread_t tid, tls **mem){
     tarray[index] = *mem;
 }
 
-void* tls_get_internal_start_address(){
+void *tls_get_internal_start_address(){
 	tls *mem = hashSearch(pthread_self());
 	if(mem == NULL)
 		return NULL;
@@ -289,6 +289,7 @@ int tls_destroy(){
             free(mem->pages[i]);
         }
     }
+    free(mem);
     
     //TODO: go through each page in the "array" of pages and free each one
     //Then free the array

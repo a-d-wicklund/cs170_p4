@@ -1,0 +1,27 @@
+This project deals with thread local storage, which is a way by which threads can have their own private memory that
+cannot be overwritten or read from by other threads. At the highest level, the data structure that I used to 
+organize the storage sections for each thread was a hash table. Essentially, it is just an array that has functions
+associated with it that insert a new tls or search the table for an existing tls. I implemented the functions to use
+linear probing. Hashing is useful because the range of possible thread ID values is enormous, but we don't ever 
+expect more than 129 threads to be active at a time. 
+
+Each tls struct contains a variable for its size, the thread's ID, and an array of pointers to page structures. 
+I chose to organize the pages in an array because it takes up little memory and there is no dynamic insertion and
+deletion necessary. Each page contains a variable called 'count' that represents the number of threads that have 
+a copy of it and a pointer to the location at which the page is stored.
+
+The write function goes through each page that needs to be written to and first unprotects it for writing, then 
+writes to it. I cover four possibilities for writing, depending on where in the page we are currently writing to.
+This probably could have been done with two cases rather than four, but that would have required marginally more 
+thinking, which I tend to try to avoid. Once the writing is complete, the function "reprotects" the page, then moves
+onto the next page, if necessary. Before doing the writing, it checks the 'count' variable to see how many threads
+are accessing it. If it is more than one, it creates a new page and sets the array element equal to a pointer to the 
+new page. The read operation is very similar to the write, with the exception that it does not create new pages. 
+
+The remaining functions are pretty straightforward and don't require explaining.
+
+This project went a lot more smoothly than past assignments. I have not had the time to thouroughly test it though.
+
+
+
+
