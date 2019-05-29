@@ -29,17 +29,19 @@ int main(){
     }
 	char *c = malloc(sizeof(char)*4501);
 	strcpy(c,"Testing one two three\0");
-	if(tls_write(4092,30,c) == -1){
+	if(tls_write(400,30,c) == -1){
 		printf("error writing too far\n");
 	}
 	char *d = malloc(sizeof(char)*4501);
-	if(tls_read(4092,22,d) == -1){
+	if(tls_read(400,22,d) == -1){
 		printf("Error reading too far\n");
 	}
 	printf("String: %s\n", d);
 	free(d);
 	free(c);
 	void *ptr2 = tls_get_internal_start_address();
+	//char try = *(((char *) ptr2)+500);
+	char what = *((char *) 23);
 	if(ptr2 ==NULL)
 		printf("Does not exist\n");
 	else

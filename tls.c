@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <signal.h>
 
 #define MAXTHREADS 129
 #define MAXPAGES 1025
@@ -54,10 +55,38 @@ void* tls_get_internal_start_address(){
 		return NULL;
 	return mem->pages[0]->addr;
 }
+void segfault_handler(int sig, siginfo_t *info, void *ucontext){
+    pagesize = getpagesize();
+    void *address = info->si_addr;
+    for (int i = 0; i < MAXTHREADS; i++){
+        //Iterate through each tls and check if any of its pages contain this address
+        tls *cur_tls = tarray[i];
+        if(cur_tls == NULL)
+            continue;
+        for(int j = 0; j <= cur_tls->size/pagesize; j++){
+            //go through each page in the array of pages
+            if(cur_tls->pages[j]->addr <= address && address <= cur_tls->pages[j]->addr + pagesize -1){
+                pthread_exit(0);
+            }
+        }
+    }
+    struct sigaction sigact;
+    sigemptyset(&sigact.sa_mask);
+    sigact.sa_handler = SIG_DFL;
+    if(sigaction(SIGSEGV,&sigact, NULL) == -1)
+        perror("Error: cannot handle SIGALRM");	     
+    raise(SIGSEGV);
 
+}
 void tls_init(){
     pagesize = getpagesize();
-    //Set up the signal handler 
+    //Set up the signal handler
+    struct sigaction sigact;
+    sigemptyset(&sigact.sa_mask);
+    sigact.sa_flags = SA_SIGINFO;
+    sigact.sa_sigaction = segfault_handler;
+    if(sigaction(SIGSEGV,&sigact, NULL) == -1)
+        perror("Error: cannot handle SIGALRM");	 
 }
 int tls_create(unsigned int size){
     if(first){
@@ -166,13 +195,13 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
             if(once){
                 //If we've already wrote past the first page of the array, write at the start of the next page
                 int writeLength = (offset+length)%pagesize;
-                strncpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, writeLength);
+                memcpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, writeLength);
             }     
             else{
 				printf("Reading from first and only page\n");
                 //On the first write, start at the offset
                 int writeLength = length;
-                strncpy(bufPos,mem->pages[offset/pagesize]->addr + offset%pagesize, writeLength);
+                memcpy(bufPos,mem->pages[offset/pagesize]->addr + offset%pagesize, writeLength);
             } 
 			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
             break;
@@ -214,11 +243,20 @@ int tls_clone(pthread_t tid){
 }
 
 int tls_destroy(){
+    pagesize = getpagesize();
     tls *mem = hashSearch(pthread_self());
     //Error Handling: TLS does not exist for this thread
     if(mem == NULL){
         return -1;
     }
+    for(int i = 0; i <= (mem->size-1)/pagesize; i++){
+        mem->pages[i]->count--;
+        if(mem->pages[i]->count == 0){
+            munmap(mem->pages[i]->addr, pagesize);
+            free(mem->pages[i]);
+        }
+    }
+    
     //TODO: go through each page in the "array" of pages and free each one
     //Then free the array
 }
