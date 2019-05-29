@@ -45,7 +45,6 @@ void hashInsert(pthread_t tid, tls **mem){
         index++;
         index = index % MAXTHREADS;
     }
-	printf("Filled array at index %d\n",index);
     tarray[index] = *mem;
 }
 
@@ -66,6 +65,7 @@ void segfault_handler(int sig, siginfo_t *info, void *ucontext){
         for(int j = 0; j <= cur_tls->size/pagesize; j++){
             //go through each page in the array of pages
             if(cur_tls->pages[j]->addr <= address && address <= cur_tls->pages[j]->addr + pagesize -1){
+                printf("Out of bounds\n");
                 pthread_exit(0);
             }
         }
@@ -126,54 +126,73 @@ int tls_write(unsigned int offset, unsigned int length, char *buffer){
     }
 
     //Unprotect pages until you're at the last page
-    int curOffsetPage = offset/pagesize;
-    int tlsPageCount = mem->size/pagesize;
+    int curOffsetPage = offset/pagesize; //Starting page number that we will write to
+    int lastPage = (offset + length)/pagesize; //Last page to write to 
+    int tlsPageCount = mem->size/pagesize; //Last page
 	char *bufPos = buffer;
     int once = 0;
 	while(1){
-		  
-        if(mem->pages[curOffsetPage]->count > 1){
+		page *curPage = mem->pages[curOffsetPage]; 
+
+        if(curPage->count > 1){
             //Create a new page and point to it in array
-            printf("About to copy on write\n");
-            mem->pages[curOffsetPage]->count--;
+            //printf("About to copy on write\n");
+            //printf("old page address: %p\n", curPage->addr);
+            curPage->count--;
             page *p = malloc(sizeof(page));
             p->count = 1;
             p->addr = mmap(NULL, 1, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-            mem->pages[curOffsetPage] = p;
+            curPage = p;
 	    }
-        if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
+        char *curPageAddress = (char *) curPage->addr; 
+        mem->pages[curOffsetPage] = curPage;
+        //printf("new page address: %p\n", mem->pages[curOffsetPage]->addr);
+        mprotect(curPageAddress, 1, PROT_WRITE);
+        if(curOffsetPage == lastPage){
+            //printf("At the last page to write to\n");
             //At the last page to write to
-            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
             if(once){
-                //If we've already wrote past the first page of the array, write at the start of the next page
+                //Writing into the last of multiple pages
+                printf("writing into the last page\n");
                 int writeLength = (offset+length)%pagesize;
-                memcpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, writeLength);
+                memcpy(curPageAddress, bufPos, writeLength);
+                bufPos += writeLength;
             }     
             else{
+                //Writing into the first and only page
 				printf("Writing into the first and only page\n");
-                //On the first write, start at the offset
                 int writeLength = length;
-                memcpy(mem->pages[offset/pagesize]->addr + offset%pagesize, bufPos, writeLength);
+                memcpy(curPageAddress + offset, bufPos, writeLength);
+                bufPos += writeLength;
 				//printf("%d\n",*((int *) mem->pages[offset/pagesize]->addr + offset%pagesize));
             } 
-			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
+            mprotect(curPageAddress, 1, PROT_NONE);
             break;
         }
         else{
-            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_WRITE);
-            int writeLength = pagesize;
-            memcpy(mem->pages[curOffsetPage/pagesize]->addr, bufPos, pagesize);
-            curOffsetPage++;
-        }
-        once = 1;
+            //At the first page or somewhere in the middle
+            if(once){
+                //Writing a whole page in the middle
+                printf("Writing a full page somewhere in the middle\n");
+                memcpy(curPageAddress,bufPos,pagesize);
+                curOffsetPage++;
+                bufPos += pagesize;
+            }
+            else{
+                //Writing into the first of multiple pages
+                printf("writing into the first page\n");
+                int writeLength = (curOffsetPage + 1)*pagesize - offset; //Need to change to be amount remaining in this page
+                memcpy(curPageAddress + offset%pagesize, bufPos, writeLength); //HERE is the error
+                curOffsetPage++;
+                bufPos += writeLength;
+            }
+            once = 1;
+            mprotect(curPageAddress, 1, PROT_NONE);
+        } 
+        
+        
     }
-
-	
-
-	
-    //if the block is shared, need to use mmap to create a new block of memory. 
-    //Maybe just make a call to tls_create?
-    //Somehow manage how its connected to previous section of memory
+   
 }
 
 int tls_read(unsigned int offset, unsigned int length, char *buffer){
@@ -186,33 +205,47 @@ int tls_read(unsigned int offset, unsigned int length, char *buffer){
 
     //Unprotect pages until you're at the last page
     int curOffsetPage = offset/pagesize;
+    int lastPage = (offset + length)/pagesize; //Last page to write to 
     int tlsPageCount = mem->size/pagesize;
 	char *bufPos = buffer;
     int once = 0;
 	while(1){
-		mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_READ);
-        if(curOffsetPage == tlsPageCount || (offset+length - curOffsetPage*pagesize) < pagesize){
+        char *curPageAddress = (char *) mem->pages[curOffsetPage]->addr;  
+		mprotect(curPageAddress, 1, PROT_READ);
+        if(curOffsetPage == lastPage){
             if(once){
-                //If we've already wrote past the first page of the array, write at the start of the next page
-                int writeLength = (offset+length)%pagesize;
-                memcpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, writeLength);
+                //Reading from the last page
+                int readLength = (offset+length)%pagesize;
+                memcpy(bufPos, curPageAddress, readLength);
             }     
             else{
+                //Reading from the first and only page
 				printf("Reading from first and only page\n");
-                //On the first write, start at the offset
-                int writeLength = length;
-                memcpy(bufPos,mem->pages[offset/pagesize]->addr + offset%pagesize, writeLength);
+                int readLength = length;
+                memcpy(bufPos,curPageAddress + offset%pagesize, readLength);
             } 
-			mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
+			mprotect(curPageAddress, 1, PROT_NONE);
             break;
         }
         else{
-            int writeLength = pagesize;
-            strncpy(bufPos, mem->pages[curOffsetPage/pagesize]->addr, pagesize);
-            curOffsetPage++;
-            mprotect(mem->pages[curOffsetPage]->addr, 1, PROT_NONE);
+            if(once){
+                //Reading a whole page in the middle
+                printf("Reading a full page somewhere in the middle\n");
+                memcpy(bufPos,curPageAddress,pagesize);
+                curOffsetPage++;
+                bufPos += pagesize;
+            }
+            else{
+                //Reading from the first page of multiple pages
+                printf("Reading from the first of multiple pages\n");
+                int readLength = (curOffsetPage + 1)*pagesize - offset;
+                memcpy(bufPos, curPageAddress + offset%pagesize, readLength);
+                curOffsetPage++;
+                bufPos += readLength;   
+            }
+            mprotect(curPageAddress, 1, PROT_NONE);
+            once = 1;
         }
-        once = 1;
     }
 }
 
@@ -232,7 +265,7 @@ int tls_clone(pthread_t tid){
 	memcpy(memself->pages, memtarget->pages, (memtarget->size/pagesize+1)*sizeof(page *));
 	hashInsert(pthread_self(), &memself);
 	//printf("page pointer at first spot(target): %p\npage pointer at first spot(clone): %p\n",memtarget->pages[0]->addr,memself->pages[0]->addr);
-	printf("After memcpy\n");
+	printf("After Clone\n");
 	//printf("target val: %d\n",(int) *((char *) memtarget->pages[0]->addr));
 	//printf("After print\n");
 	int i = 0;
