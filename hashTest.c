@@ -24,24 +24,28 @@ int main(){
 		printf("Does not exist\n");
 	else
 		printf("Thread local storage exists. first page is at %p\n", ptr);
-	if(tls_create(5000) == -1){
+	if(tls_create(10000) == -1){
         printf("Error\n");
     }
+
+
 	char *c = malloc(sizeof(char)*4501);
-	strcpy(c,"Testing one two three\0");
-	if(tls_write(400,30,c) == -1){
+	strcpy(c,"Testing one two FOUR\0");
+	if(tls_write(8189,12,c) == -1){
 		printf("error writing too far\n");
 	}
 	char *d = malloc(sizeof(char)*4501);
-	if(tls_read(400,22,d) == -1){
+	if(tls_read(8189,12,d) == -1){
 		printf("Error reading too far\n");
 	}
 	printf("String: %s\n", d);
 	free(d);
 	free(c);
+
+
 	void *ptr2 = tls_get_internal_start_address();
-	//char try = *(((char *) ptr2)+500);
-	char what = *((char *) 23);
+	char try = *(((char *) ptr2)+500);
+	//char what = *((char *) 23);
 	if(ptr2 ==NULL)
 		printf("Does not exist\n");
 	else

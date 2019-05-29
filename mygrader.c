@@ -150,6 +150,32 @@ static int test4(void){
     return 1;
 }
 
+
+static int test9(void){
+    pthread_t tid1 = 0;
+
+    // create a thread, to give anyone using their homegrown thread library a chance to init
+    //pthread_create(&tid1, NULL,  &_thread_dummy, NULL);
+
+    char in_buf[6000] = {0};
+    for(int i = 0; i < 6000; i++) {
+        in_buf[i] = 1;
+    }
+    char out_buf[6000] = {0};
+
+    tls_create(12288);
+    tls_write(4000, 6000, in_buf);
+    tls_read(4000, 6000, out_buf);
+
+    for(int i = 0; i < 6000; i++){
+        if(out_buf[i] != 1){
+            return 0;
+        }
+    }
+
+    return 1;
+}
+
 int main(){
 	/*if(test1()){
 		printf("Passed 1!\n");
@@ -162,10 +188,13 @@ int main(){
 	if(test3()){
 		printf("Passed 3!\n");
 	}
-	*/
+	
 	if(test4()){
 		printf("Passed 4!\n");
-	}
+	}*/
+    if(test9()){
+        printf("Passed 9!\n");
+    }
 	
 
 }

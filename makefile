@@ -1,8 +1,8 @@
-output: autograder.o tls.o
-	gcc -g -pthread autograder.o tls.o -o app
+output: autograder_main.o tls.o
+	gcc -g -pthread autograder_main.o tls.o -o app
 
-autograder.o: autograder.c
-	gcc -c -g autograder.c
+autograder_main.o: autograder_main.c
+	gcc -c -g autograder_main.c
 
 tls.o: tls.c
 	gcc -c -g tls.c
